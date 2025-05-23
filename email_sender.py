@@ -1,16 +1,35 @@
 import smtplib
 import random
 import time
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
-# Konfigurace emailu
-SMTP_SERVER = "smtp.gmail.com"  # Pro Gmail
-SMTP_PORT = 587
-SENDER_EMAIL = "vas_email@gmail.com"  # Změňte na váš odesílací email
-SENDER_PASSWORD = "vase_heslo"  # Změňte na vaše heslo nebo app password
-RECIPIENT_EMAIL = "cilovy_email@gmail.com"  # Změňte na váš cílový email
+# Načtení proměnných z .env souboru
+load_dotenv()
+
+# Kontrola povinných proměnných prostředí
+REQUIRED = ("EMAIL_USER", "EMAIL_PASS", "RECIPIENT_EMAIL")
+missing = [k for k in REQUIRED if not os.getenv(k)]
+if missing:
+    raise RuntimeError(f"❌ Chybějící proměnné v .env souboru: {', '.join(missing)}")
+
+# Konfigurace emailu - načteno z .env
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SENDER_EMAIL = os.getenv("EMAIL_USER")
+SENDER_PASSWORD = os.getenv("EMAIL_PASS")
+RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
+
+# Validace email formátu (základní)
+def validate_email(email):
+    """Základní validace email adresy"""
+    return "@" in email and "." in email.split("@")[1]
+
+if not all(validate_email(email) for email in [SENDER_EMAIL, RECIPIENT_EMAIL]):
+    raise ValueError("❌ Neplatný formát email adresy")
 
 # Definice kategorií a jejich obsahu
 CATEGORIES = {
@@ -40,7 +59,7 @@ CATEGORIES = {
         ],
         "contents": [
             "Dobrý den,\n\nprosím o přípravu daňového přiznání za minulý rok. Máte všechny potřebné doklady?\n\nS pozdravem",
-            "Zdravím,\n\npotřebuji zkontrolovat výpočet DPH za uplynulý měsíc. Můžeme si projít čísta?\n\nDěkuji",
+            "Zdravím,\n\npotřebuji zkontrolovat výpočet DPH za uplynulý měsíc. Můžeme si projít čísla?\n\nDěkuji",
             "Dobrý den,\n\nmám dotaz ohledně výpočtu silniční daně pro naše vozidla.\n\nS pozdravem",
             "Zdravím,\n\npřipravujeme daň z příjmů PO. Prosím o zaslání potřebných podkladů.\n\nDěkuji",
             "Dobrý den,\n\npotřebujeme připravit kontrolní hlášení DPH. Máte připravené údaje?\n\nS pozdravem"
@@ -55,7 +74,7 @@ CATEGORIES = {
             "Žádost o zaplacení faktury"
         ],
         "contents": [
-            "Dobrý den,\n\nupozorňujem na neuhrazenou fakturu s termínem splatnosti v minulém týdnu.\n\nS pozdravem",
+            "Dobrý den,\n\nupozorňuji na neuhrazenou fakturu s termínem splatnosti v minulém týdnu.\n\nS pozdravem",
             "Zdravím,\n\nposílám novou fakturu k zaúčtování. Prosím o zařazení do účetnictví.\n\nDěkuji",
             "Dobrý den,\n\nmám dotaz ohledně zaúčtování faktury. Můžeme si to vyjasnit?\n\nS pozdravem",
             "Zdravím,\n\nmusíme opravit chybu na vystavené faktuře. Jak postupovat?\n\nDěkuji",
@@ -151,10 +170,10 @@ CATEGORIES = {
             "Poznámky k účetní závěrce"
         ],
         "contents": [
-            "Dobrý den,\n\npotřebujeme sestavit rozvahe za uplynulý rok. Máte připravené údaje?\n\nS pozdravem",
+            "Dobrý den,\n\npotřebujeme sestavit rozvahu za uplynulý rok. Máte připravené údaje?\n\nS pozdravem",
             "Zdravím,\n\nprosím o kontrolu výkazu zisku a ztráty před odesláním.\n\nDěkuji",
             "Dobrý den,\n\nchybí nám přehled o peněžních tocích. Můžete ho připravit?\n\nS pozdravem",
-            "Zdravím,\n\npotřebujeme dokončit měsíční výkazy do konce týdne.\n\nDěkuji",
+            "Zdravím,\n\npotřebujemes dokončit měsíční výkazy do konce týdne.\n\nDěkuji",
             "Dobrý den,\n\nmusíme připravit poznámky k účetní závěrce.\n\nS pozdravem"
         ]
     },
@@ -194,13 +213,14 @@ def generate_random_values():
     }
 
 def send_email(subject, content, recipient):
-    """Odešle jeden email"""
+    """Odešle jeden email s kompletním error handlingem"""
     try:
         # Vytvoření zprávy
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
         msg['To'] = recipient
         msg['Subject'] = subject
+        msg['Date'] = datetime.now().strftime("%a, %d %b %Y %H:%M:%S %z")
         
         # Přidání obsahu
         msg.attach(MIMEText(content, 'plain', 'utf-8'))
@@ -212,23 +232,41 @@ def send_email(subject, content, recipient):
             server.send_message(msg)
         
         return True
+        
+    except smtplib.SMTPAuthenticationError:
+        print("❌ Chyba ověření - zkontrolujte email a heslo (pro Gmail použijte App Password)")
+        return False
+    except smtplib.SMTPRecipientsRefused:
+        print("❌ Neplatná cílová email adresa")
+        return False
+    except smtplib.SMTPServerDisconnected:
+        print("❌ Připojení k SMTP serveru bylo přerušeno")
+        return False
     except Exception as e:
-        print(f"Chyba při odesílání emailu: {e}")
+        print(f"❌ Neočekávaná chyba při odesílání: {e}")
         return False
 
 def main():
     """Hlavní funkce - odešle 50 emailů (5 pro každou kategorii)"""
-    print("Zahajuji odesílání testovacích emailů...")
-    print(f"Odesílání na: {RECIPIENT_EMAIL}")
-    print(f"Počet kategorií: {len(CATEGORIES)}")
-    print(f"Celkem emailů: {len(CATEGORIES) * 5}")
-    print("-" * 50)
+    print("🚀 Zahajuji odesílání testovacích emailů...")
+    print(f"📧 Odesílání z: {SENDER_EMAIL}")
+    print(f"📥 Odesílání na: {RECIPIENT_EMAIL}")
+    print(f"📊 Počet kategorií: {len(CATEGORIES)}")
+    print(f"📈 Celkem emailů: {len(CATEGORIES) * 5}")
+    print("=" * 60)
+    
+    # Potvrzení od uživatele
+    confirmation = input("\n⚠️  Opravdu chcete odeslat všechny emaily? (ano/ne): ").lower().strip()
+    if confirmation not in ['ano', 'a', 'yes', 'y']:
+        print("❌ Odesílání zrušeno uživatelem")
+        return
     
     sent_count = 0
     failed_count = 0
+    start_time = datetime.now()
     
     for category_name, category_data in CATEGORIES.items():
-        print(f"\nOdesílám emaily pro kategorii: {category_name}")
+        print(f"\n📂 Odesílám emaily pro kategorii: {category_name}")
         
         for i in range(5):  # 5 emailů pro každou kategorii
             # Generování náhodných hodnot
@@ -239,42 +277,66 @@ def main():
             content_template = random.choice(category_data["contents"])
             
             # Nahrazení placeholder hodnot
-            subject = subject_template.format(**random_values)
+            try:
+                subject = subject_template.format(**random_values)
+            except KeyError as e:
+                print(f"⚠️  Chyba v template předmětu: {e}")
+                subject = subject_template
+            
             content = content_template
             
             # Přidání kategorie do předmětu pro snadnější filtrování
             subject = f"[{category_name.upper()}] {subject}"
             
             # Přidání informací o kategorii do obsahu
-            content += f"\n\n---\nKategorie: {category_name}\nEmail {i+1}/5 pro tuto kategorii"
+            content += f"\n\n---\nKategorie: {category_name}\nEmail {i+1}/5 pro tuto kategorii\nOdesláno: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}"
             
-            print(f"  Odesílám email {i+1}/5: {subject[:50]}...")
+            print(f"  📤 Email {i+1}/5: {subject[:50]}{'...' if len(subject) > 50 else ''}")
             
             # Odeslání emailu
             if send_email(subject, content, RECIPIENT_EMAIL):
                 sent_count += 1
-                print(f"  ✓ Úspěšně odesláno")
+                print(f"  ✅ Úspěšně odesláno")
             else:
                 failed_count += 1
-                print(f"  ✗ Chyba při odesílání")
+                print(f"  ❌ Chyba při odesílání")
             
             # Pauza mezi emaily (aby nedošlo k omezení ze strany SMTP serveru)
             time.sleep(2)
     
-    print("\n" + "=" * 50)
-    print("SOUHRN ODESÍLÁNÍ:")
-    print(f"Úspěšně odesláno: {sent_count}")
-    print(f"Neúspěšně: {failed_count}")
-    print(f"Celkem: {sent_count + failed_count}")
-    print("=" * 50)
+    end_time = datetime.now()
+    duration = end_time - start_time
+    
+    print("\n" + "=" * 60)
+    print("📊 SOUHRN ODESÍLÁNÍ:")
+    print(f"✅ Úspěšně odesláno: {sent_count}")
+    print(f"❌ Neúspěšně: {failed_count}")
+    print(f"📋 Celkem: {sent_count + failed_count}")
+    print(f"⏱️  Doba trvání: {duration}")
+    print(f"📅 Dokončeno: {end_time.strftime('%d.%m.%Y %H:%M:%S')}")
+    print("=" * 60)
+    
+    if sent_count > 0:
+        print(f"\n✨ Zkontrolujte vaši emailovou schránku: {RECIPIENT_EMAIL}")
+        print("💡 Tip: Emaily mohou být ve spam složce")
 
 if __name__ == "__main__":
-    print("DŮLEŽITÉ: Před spuštěním skriptu nezapomeňte:")
-    print("1. Změnit SENDER_EMAIL na váš odesílací email")
-    print("2. Změnit SENDER_PASSWORD na vaše heslo (nebo App Password pro Gmail)")
-    print("3. Změnit RECIPIENT_EMAIL na váš cílový email")
-    print("4. Pro Gmail může být potřeba použít App Password místo běžného hesla")
-    print("\nStiskněte Enter pro pokračování nebo Ctrl+C pro zrušení...")
-    input()
-    
-    main()
+    try:
+        print("🔧 KONTROLA KONFIGURACE:")
+        print(f"📧 Odesílací email: {SENDER_EMAIL}")
+        print(f"📥 Cílový email: {RECIPIENT_EMAIL}")
+        print(f"🔗 SMTP server: {SMTP_SERVER}:{SMTP_PORT}")
+        print("\n⚠️  DŮLEŽITÉ:")
+        print("1. ✅ Ujistěte se, že máte správně nastaven .env soubor")
+        print("2. ✅ Pro Gmail použijte App Password místo běžného hesla")
+        print("3. ✅ Zkontrolujte, že máte povolený přístup k méně zabezpečeným aplikacím")
+        print("\n🚀 Stiskněte Enter pro pokračování nebo Ctrl+C pro zrušení...")
+        input()
+        
+        main()
+        
+    except KeyboardInterrupt:
+        print("\n❌ Program byl přerušen uživatelem")
+    except Exception as e:
+        print(f"\n💥 Kritická chyba: {e}")
+        print("🔍 Zkontrolujte vaši konfiguraci v .env souboru")

@@ -1,21 +1,11 @@
-# Konfigurace s hesly - DŮLEŽITÉ!
-config.py
+# Environment variables - NEVER commit these!
 .env
-*.env
-config.json
-settings.json
 
-# Ignorovat virtuální prostředí
-venv/
-env/
-ENV/
-.venv/
-
-# Ignorovat soubory cache Pythonu
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
 build/
 develop-eggs/
@@ -29,40 +19,29 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Ignorovat logy a dočasné soubory
-*.log
-*.tmp
-*.temp
-logs/
-temp/
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
 
-# Ignorovat nastavení editoru
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Ignorovat systémové soubory
+# OS
 .DS_Store
 Thumbs.db
-*.DS_Store
-.AppleDouble
-.LSOverride
 
-# Ignorovat Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-
-# Ignorovat pytest cache
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Ignorovat mypy cache
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# Logs
+*.log
