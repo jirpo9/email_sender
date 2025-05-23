@@ -1,0 +1,13 @@
+
+# Žádné externí závislosti nejsou potřeba
+# Všechny použité moduly jsou součástí standardní Python knihovny:
+# - smtplib (pro odesílání emailů)
+# - email.mime.text (pro vytváření emailových zpráv)
+# - email.mime.multipart (pro složené emailové zprávy)
+# - random (pro generování náhodných hodnot)
+# - time (pro pauzy mezi emaily)
+# - datetime (pro práci s datumy)
+
+# Pokud chcete použít další funkce, můžete přidat:
+# python-dotenv==1.0.0  # Pro načítání .env souborů
+# colorama==0.4.6       # Pro barevný výstup v terminálu
